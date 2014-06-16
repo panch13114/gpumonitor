@@ -1,0 +1,197 @@
+#!/usr/bin/python
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+import matplotlib.animation as animation
+import matplotlib as mpl
+import sys
+import commands 
+from matplotlib.ticker import MaxNLocator
+import re
+from matplotlib.widgets import Button
+import random
+
+x=[]
+allGPUmem=[]
+y=[]
+y1=[]
+y2=[]
+
+everything=commands.getoutput("nvidia-smi -q")
+lines=everything.splitlines()
+v=0
+for i in range(len(lines)):
+  match=re.search('Attached',lines[i])
+  if match:
+    strNoGPUs=''.join(x for x in lines[i] if x.isdigit())
+  matchName=re.search('Product Name',lines[i])
+  if matchName:
+    t=lines[i].split()
+    t2=t[3:len(t)]
+    GPUName=' '.join(t2)
+  matchTotal=re.search('FB Memory Usage',lines[i])
+  if matchTotal:
+    Mem=''.join(x for x in lines[i+1] if x.isdigit())
+    allGPUmem.append(int(Mem))
+    v=v+1
+if v!=int(strNoGPUs):
+  print "error"
+  exit()
+
+
+mpl.rcParams['toolbar'] = 'None'
+NoGPUs=int(strNoGPUs)
+for s in range(NoGPUs):
+  y.append([])
+  y1.append([])
+  y2.append([])
+
+
+GPUName="Device:  "+GPUName
+
+
+class Index:
+    ind = 0
+    def next(self, event):
+      commands.getoutput("nvidia-settings")
+
+
+class SubplotAnimation(animation.TimedAnimation):
+    def __init__(self):
+        fig = plt.figure("GPU")
+
+        ax1 = fig.add_subplot(4, 1, 1)
+        ax2 = fig.add_subplot(4, 1, 2)
+        ax3 = fig.add_subplot(4, 1, 3)
+        fig.subplots_adjust(hspace=0.75)
+        fig.text(0.15, 0.15, GPUName)
+
+
+        self.t = np.linspace(0, 80, 400)
+        ax1.set_xlabel('Time(seconds)')
+        ax1.set_ylabel('Fan Speed(%)')
+        self.line1e={}
+        
+        for s in range(int(strNoGPUs)):
+          self.line1e[s] = Line2D([], [], color=self.color(s), markeredgecolor='r',label="GPU"+str(s+1))
+          ax1.add_line(self.line1e[s])
+        ax1.set_xlim(60, 0)
+        ax1.set_ylim(0, 100)
+        ax1.yaxis.set_major_locator(MaxNLocator(4))
+#        ax1.legend(loc='upper left',ncol=int(strNoGPUs)/2)
+#        ax1.legend(bbox_to_anchor=(0.05, -0.2),shadow=False)
+        legend = ax1.legend(bbox_to_anchor=(0.05, -0.2), shadow=True)
+        
+#        frame = legend.get_frame()
+#        frame.set_facecolor('0.90')
+        
+        # Set the fontsize
+#        for label in legend.get_texts():
+#            label.set_fontsize('large')
+
+#        for label in legend.get_lines():
+#            label.set_linewidth(1.5)  # the legend line widthax2.set_xlabel('Time(seconds)')
+        ax2.set_ylabel('GPU Memory Usage (MiB)')
+        self.line2e={}
+        for s in range(int(strNoGPUs)):
+          self.line2e[s] = Line2D([], [], color=self.color(s), markeredgecolor='b',label="GPU"+str(s+1))
+          ax2.add_line(self.line2e[s])
+        maxGPUmem=max(allGPUmem)
+        ax2.set_xlim(60, 0)
+        ax2.set_ylim(0, maxGPUmem)
+        ax2.yaxis.set_major_locator(MaxNLocator(4))
+        legend2 = ax2.legend(bbox_to_anchor=(0.05, -0.2), shadow=True)
+#        ax2.legend(loc='upper left',ncol=int(strNoGPUs)/2)
+        ax3.set_xlabel('Time(Seconds)')
+        ax3.set_ylabel('Temperature (C)')
+        self.line3e={}
+        for s in range(int(strNoGPUs)):
+          self.line3e[s] = Line2D([], [], color=self.color(s), markeredgecolor='g',label="GPU"+str(s+1))
+          ax3.add_line(self.line3e[s])
+        ax3.set_xlim(60, 1)
+        ax3.set_ylim(0, 120)
+        ax3.yaxis.set_major_locator(MaxNLocator(4))
+        legend = ax3.legend(bbox_to_anchor=(0.05, -0.2), shadow=True)
+
+
+
+        animation.TimedAnimation.__init__(self, fig, interval=60, blit=True)
+
+
+    def color(self,k):
+      return (random.random(),random.random(),random.random())
+
+    def _draw_frame(self, framedata):
+        i = framedata
+        x.append(i)
+        everything=commands.getoutput("nvidia-smi -q")
+        linesGPU=everything.splitlines()
+        Fanind=[]
+        GPUFan=[]
+        Usedind=[]
+        GPUUsed=[]
+        Tempind=[]
+        GPUTemp=[]
+        for j in range(len(linesGPU)):
+          v2=[m.start() for m in re.finditer(r"Fan",linesGPU[j])]
+          if v2:
+            Fanind.append(j)
+          v3=[m.start() for m in re.finditer(r"FB Memory Usage",linesGPU[j])]
+          if v3:
+            Usedind.append(j+2)
+          v4=[m.start() for m in re.finditer(r"Temperature",linesGPU[j])]
+          if v4:
+            Tempind.append(j+1)
+
+
+        for j in range(int(strNoGPUs)):
+          tempFan=''.join(x for x in linesGPU[Fanind[j]] if x.isdigit())
+          GPUFan.append(int(tempFan))
+          tempUsed=''.join(x for x in linesGPU[Usedind[j]] if x.isdigit())
+          GPUUsed.append(int(tempUsed))
+          tempTemp=''.join(x for x in linesGPU[Tempind[j]] if x.isdigit())
+          GPUTemp.append(int(tempTemp))
+        
+
+
+        for j in range(int(strNoGPUs)):
+          y[j].append(int(GPUFan[j]))
+          y1[j].append(int(GPUUsed[j]))
+          y2[j].append(int(GPUTemp[j]))
+
+        if i%90==0:
+          x[60:len(x)]=[]
+          for s in range(int(strNoGPUs)): 
+            y[s][60:len(y[s])]=[]
+            y1[s][60:len(y1[s])]=[]
+            y2[s][60:len(y2[s])]=[]
+        for s in range(int(strNoGPUs)): 
+          self.line1e[s].set_data(x,y[s])
+          self.line2e[s].set_data(x,y1[s])
+          self.line3e[s].set_data(x,y2[s])
+
+    def new_frame_seq(self):
+        return iter(range(self.t.size))
+
+    def _init_draw(self):
+        Fanlines=[self.line1e[s] for s in range(int(strNoGPUs))]
+        Usedlines=[self.line2e[s] for s in range(int(strNoGPUs))]
+        Templines=[self.line3e[s] for s in range(int(strNoGPUs))]
+        lines =  Fanlines+Usedlines+Templines
+
+        for l in lines:
+            l.set_data([], [])
+
+ani = SubplotAnimation()
+
+mpl.rc_context({'toolbar':False})
+callback = Index()
+axnext = plt.axes([0.71, 0.05, 0.25, 0.075])
+bnext = Button(axnext, 'More about Your GPU(s)')
+bnext.on_clicked(callback.next)
+#plt.tight_layout()
+screent=commands.getoutput("xrandr | grep '*'")
+thismanager =plt.get_current_fig_manager()
+thismanager.window.wm_geometry(screent.split()[0]+"+0+0") 
+plt.show()
