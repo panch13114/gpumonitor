@@ -170,7 +170,7 @@ class SubplotAnimation(animation.TimedAnimation):
 
 ani = SubplotAnimation()
 
-mpl.rc_context({'toolbar':False})
+#mpl.rc_context({'toolbar':False})
 callback = Index()
 axnext = plt.axes([0.71, 0.05, 0.25, 0.075])
 bnext = Button(axnext, 'More about Your GPU(s)')
